@@ -2,9 +2,10 @@ from team_class import Team
 from player_class import Player
 from time import sleep
 from typing import Union, List
-from constants import COLOR_DICT, POINTS_FOR_WIN
+from constants import COLOR_DICT, POINTS_FOR_WIN, Color, NUM_OF_PLAYERS_IN_LINE_UP
 from random import choices
 from os import system
+from field_class import Field
 
 
 class Game:
@@ -12,7 +13,7 @@ class Game:
     _all_instances = []  # Static list to keep track of all instances
 
     @staticmethod
-    def choose_target(shooter: Player, eligible_players: List[Player]) -> Player:
+    def _choose_target(shooter: Player, eligible_players: List[Player]) -> Player:
         probabilities = []
         for rival in eligible_players:
             distance = shooter.calculate_distance_to(rival)
@@ -24,13 +25,13 @@ class Game:
             try:
                 probabilities.append(rival_prob / distance)
             except ZeroDivisionError:
-                print(f"{shooter.format_name()} tried to shoot {rival.format_name()} "
+                print(f"{shooter.format_name} tried to shoot {rival.format_name} "
                       f"but the distance calculated was {distance}")
                 raise ZeroDivisionError
-        return Game.choose_player_by_probabilities(eligible_players, probabilities)
+        return Game._choose_player_by_probabilities(eligible_players, probabilities)
 
     @staticmethod
-    def choose_player_by_probabilities(options: list, probabilities: list) -> Player:
+    def _choose_player_by_probabilities(options: list, probabilities: list) -> Player:
         try:
             result = choices(options, weights=probabilities)[0]
         except IndexError:
@@ -38,7 +39,7 @@ class Game:
             raise IndexError
         return result
 
-    def __init__(self, left_team: Team, right_team: Team, declare: dict):
+    def __init__(self, left_team: Team, right_team: Team):
         Game._id_counter += 1
         Game._all_instances.append(self)
         self._id = Game._id_counter
@@ -50,10 +51,55 @@ class Game:
         self._set_counter = 0
         self._phase_counter = 0
         self._turn_counter = 0
-        self._carrier_color = self.determine_carrier_color()
+        self._carrier_color: Color = self._determine_carrier_color()
+        self.field = Field(left_team.color, right_team.color, self._carrier_color)
         self._carrier: Union[Player, None] = None
         self._running_team: Union[Team, None] = None
         self._shooting_team: Union[Team, None] = None
+
+    @property
+    def get_id(self):
+        return self._id
+
+    # Properties for scores
+    @property
+    def right_score(self):
+        return self._right_score
+
+    def increase_right_score(self):
+        self._right_score += 1
+
+    @property
+    def left_score(self):
+        return self._left_score
+
+    def increase_left_score(self):
+        self._left_score += 1
+
+    # Property for carrier color (read-only, based on determine_carrier_color)
+    @property
+    def carrier_color(self):
+        return self._carrier_color
+
+    # Properties for carrier
+    @property
+    def carrier(self):
+        return self._carrier
+
+    def _set_carrier(self, player: Player):
+        if not isinstance(player, Player):
+            print(f"tried to change carrier but {player} is not a Player")
+            raise Exception()
+        self._carrier = player
+
+    # Properties for teams
+    @property
+    def left_team(self):
+        return self._left_team
+
+    @property
+    def right_team(self):
+        return self._right_team
 
     @property
     def teams(self):
@@ -63,35 +109,46 @@ class Game:
     def on_field_players(self):
         return self._left_team.line_up + self._right_team.line_up
 
-    def determine_carrier_color(self):  # TODO: use enum
+    def _determine_carrier_color(self) -> Color:
         colors = [self._left_team.color, self._right_team.color]
-        if COLOR_DICT["blue"] not in colors:
-            return COLOR_DICT["cyan"]
-        elif COLOR_DICT["magenta"] not in colors:
-            return COLOR_DICT["purple"]
+        if Color.BLUE not in colors:
+            return Color.CYAN
+        elif Color.MAGENTA not in colors:
+            return Color.PURPLE
         else:
-            return COLOR_DICT["lime"]
+            return Color.LIME
 
-    def declare_teams(self):
-        print(f"{self._left_team.name} Vs {self._right_team.name}")
+    def _get_columns(self):
+        raw_column_lst = []
+        final_column_lst = []
+        for team in self.teams:
+            raw_column_lst.extend(team.get_columns())
+        for i in range(NUM_OF_PLAYERS_IN_LINE_UP):
+            final_column_lst.append(raw_column_lst[i])
+            final_column_lst.append(raw_column_lst[i + NUM_OF_PLAYERS_IN_LINE_UP])
+        return final_column_lst
 
-    def prepare_match(self):
-        self._left_team.is_left(True)
-        self._right_team.is_left(False)
+    def _declare_teams(self):
+        print(f"{self._left_team.format_team_name()} Vs {self._right_team.format_team_name()}")
+
+    def _prepare_match(self):
+        self._left_team.is_left = True
+        self._right_team.is_left = False
+        self._set_counter = 0
         for team in self.teams:
             team.reset_all_positions()
             team.allow_substitution()
-        self.declare_teams()
+        self._declare_teams()
 
-    def creating_competition(self):
+    def _creating_competition(self):
         eligible_players = \
             [player for player in self.on_field_players if player.column not in [0, 21]]
         creating_attributes = [player.creating for player in eligible_players]
-        self._carrier = Game.choose_player_by_probabilities(eligible_players, creating_attributes)
+        self._set_carrier(Game._choose_player_by_probabilities(eligible_players, creating_attributes))
         self._carrier.create_disc()
-        self.determine_running_and_shooting_team()
+        self._determine_running_and_shooting_team()
 
-    def determine_running_and_shooting_team(self):
+    def _determine_running_and_shooting_team(self):
         if not self._carrier:
             print("tried to find the running team but there is no carrier")
             raise Exception()
@@ -105,7 +162,7 @@ class Game:
             print(f"the carrier - {self._carrier.format_name} is not in either team's roster")
             raise Exception()
 
-    def wrap_with_placeholders(self, string1_to_wrap: str, string2_to_wrap: str):
+    def _wrap_with_placeholders(self, string1_to_wrap: str, string2_to_wrap: str):
         left_placeholder = ' ' * (len(self._left_team.name) // 2)
         right_placeholder = ' ' * (len(self._right_team.name) // 2)
         str_list = [left_placeholder, string1_to_wrap, left_placeholder,
@@ -113,26 +170,28 @@ class Game:
                     right_placeholder, string2_to_wrap, right_placeholder]
         return "".join(str_list)
 
-    def declare_state(self):
+    def _declare_state(self):
         system("cls")
+        print("\n")
+        self.field.print_field(self._get_columns(), self._carrier.row)
 
-        print(self.wrap_with_placeholders(self._left_team.format_team_name(), self._right_team.format_team_name()))
-        print(self.wrap_with_placeholders(str(self._left_score), str(self._right_score)))
+        print(self._wrap_with_placeholders(self._left_team.format_team_name(), self._right_team.format_team_name()))
+        print(self._wrap_with_placeholders(str(self._left_score), str(self._right_score)))
         print(f"set : {self._set_counter}, phase: {self._phase_counter}, turn: {self._turn_counter}")
+        if self._carrier is not None:
+            print(f"{self._carrier.format_name} holds the disc at position {self._carrier.row, self._carrier.column}")
 
-    def conclude_match(self):
-        self._left_team.is_left(False)
-        for team in self.teams:
-            team.inhibit_substitution()
-            team.reset_roster()
-            for player in team.roster:
-                player.get_off_field()
-
+    def _conclude_match(self):
         print(f"{self._left_team.name if self._left_score == POINTS_FOR_WIN else self._right_team.name} "
               f"won! \n"
               f"the final score was {self._left_score} : {self._right_score}")
+        for team in self.teams:
+            team.finish_match()
+            for player in team.roster:
+                if player.game_table["sets_played"][0] > 0:
+                    player.present_player(self.get_player_in_top_summary(player))
 
-    def check_touchdown(self) -> bool:
+    def _check_touchdown(self) -> bool:
         if self._carrier.column in [10, 11]:
             self._carrier.touchdown()
             if self._running_team is self._left_team:
@@ -145,50 +204,54 @@ class Game:
             return True
         return False
 
-    def turn(self) -> str:
+    def _turn(self) -> str:
         self._turn_counter = 0
 
         while True:
             # a loop that runs until a touchdown is scored, the carrier drops the disc or there were more than 10 turns
-            self._set_counter += 1
+            self._turn_counter += 1
 
-            self.declare_state()
+            self._declare_state()
 
             for team in self.teams:
                 team.advance_all()
 
-            there_was_a_drop_at_some_point = False
             taker = None
+            there_was_a_drop = False
             for player in self._shooting_team.line_up:
-                there_was_a_drop = player.face_off(Game.choose_target(player, self._running_team.line_up))
-                if there_was_a_drop:
-                    there_was_a_drop_at_some_point = True
-                    taker = player.format_name()
+                target_player = Game._choose_target(player, self._running_team.line_up)
+                there_was_a_fall = Player.face_off(player, target_player, self._running_team.is_left)
+                if there_was_a_fall and target_player is self.carrier:
+                    there_was_a_drop = True
+                    taker = player.format_name
 
-            if there_was_a_drop_at_some_point:
-                self.declare_state()
-                print(f"{taker} has manage to take {self._carrier.format_name()} down!")
-                sleep(3)
+            if there_was_a_drop:
+                self._declare_state()
+                print(f"{taker} has manage to take {self._carrier.format_name} down!")
+                sleep(1)
                 return "Drop"
 
-            if self.check_touchdown():
-                self.declare_state()
-                print(f"{self._carrier.format_name()} scored a touchdown!")
-                sleep(3)
+            if self._check_touchdown():
+                self._declare_state()
+                print(f"{self._carrier.format_name} scored a touchdown!")
+                sleep(1)
                 return "Touchdown"
 
             if self._turn_counter > 9:
-                self.declare_state()
+                self._declare_state()
                 print(f"Time! the disc is now free!")
-                sleep(3)
+                sleep(1)
                 return "Time"
 
-    def phase(self):
+    def _phase(self):
         self._phase_counter = 0
         while True:
             self._phase_counter += 1
-            self.creating_competition()
-            result = self.turn()
+            self._creating_competition()
+            self._declare_state()
+            if not self.dash_or_successful_pass():
+                continue
+            result = self._turn()
             if result == "Touchdown":
                 break
 
@@ -198,5 +261,77 @@ class Game:
             team.reset_all_positions()
             team.add_set_to_players_count()
 
-        self.phase()
+        self._phase()
+
+    def simulate(self):
+        self._prepare_match()
+        while self._left_score < POINTS_FOR_WIN and self._right_score < POINTS_FOR_WIN:
+            self.set()
+        self._conclude_match()
+
+    def decide_pass_probabilities(self):
+        running_is_left = self._running_team.is_left
+        probabilities = []
+        advantages = [self.carrier.compare_columns(player, running_is_left) for player in self._running_team.line_up]
+        for player in self._running_team.line_up:
+            if max(advantages) == 0:
+                return [1 if player is self.carrier else 0 for player in self._running_team.line_up]
+
+            elif player is self.carrier:
+                distance_to_carrier = 0
+                block_advantage = 1/max(advantages)
+
+            else:
+                distance_to_carrier = self.carrier.calculate_distance_to(player)
+                block_advantage = self.carrier.compare_columns(player, running_is_left)/max(advantages)
+
+            distance_to_end_zone = player.distance_to_end_zone(self._running_team.is_left)
+            end_zone_weight = 1 if distance_to_end_zone == 0 else 1/distance_to_end_zone
+            distance_weight = 1 if distance_to_carrier == 0 else 1/distance_to_carrier
+
+            probabilities.append(block_advantage*end_zone_weight*distance_weight)
+        return probabilities
+
+    def dash_or_successful_pass(self):
+        probabilities = self.decide_pass_probabilities()
+        target = self._choose_player_by_probabilities(self._running_team.line_up, probabilities)
+        if target is not self._carrier:
+            return self.pass_try(target)
+        else:
+            self._carrier.dash()
+            print(f"{self._carrier.format_name} decided to dash")
+            return True
+
+    def pass_try(self, target: Player):
+        pass_result = Player.pass_play(self._carrier, target, self._running_team.is_left)
+        if pass_result:
+            print(
+                f"{self._carrier.format_name} ({self._carrier.column}) passed it to {target.format_name} ({target.column})")
+            self._carrier = target
+        else:
+            print(f"a failed pass by {self._carrier.format_name} to {target.format_name}")
+        return pass_result
+
+    def top_players(self, stat: str):
+        threshold = 0
+        top_list = []
+        for player in self._left_team.roster + self._right_team.roster:
+            temp = player.current_match_stat(stat)
+            if temp > threshold:
+                top_list = [player]
+                threshold = temp
+            elif temp == threshold and threshold != 0:
+                top_list.append(player)
+        return top_list
+
+    def get_player_in_top_summary(self, player: Player):
+        player_top_list = []
+        keys = player.game_table.keys()
+        for stat in keys:
+            if stat == "sets_played":
+                continue
+            if player in self.top_players(stat):
+                player_top_list.append(stat)
+        return player_top_list
+
 

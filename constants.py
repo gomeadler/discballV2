@@ -48,7 +48,10 @@ COLOR_DICT = {
 }
 
 
+def paint(string: str, color: Color):
+    return "".join([color.value, string, Color.COLOR_RESET.value])
 
 
+#  TODO: change this
 TEAMS = ["Team A", "Team B", "Team C", "Team D", "Team E", "Team F", "Team G", "Team H"]
 COLORS = ["red", "blue", "green", "yellow", "magenta", "orange", "gray", "brown"]

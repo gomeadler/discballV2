@@ -1,3 +1,4 @@
+import pandas
 from pandas import DataFrame, read_excel, Series
 from numpy import random, clip
 from names import get_first_name

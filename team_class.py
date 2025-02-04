@@ -1,21 +1,22 @@
-from constants import Color, COLOR_RESET, NUM_OF_PLAYERS_IN_LINE_UP, NUM_OF_PLAYERS_IN_TEAM
+from constants import Color, COLOR_RESET, NUM_OF_PLAYERS_IN_LINE_UP, NUM_OF_PLAYERS_IN_TEAM, paint
 from player_class import Player
 from pandas import DataFrame
+from typing import List
 
 
 class Team:
     _id_counter = 0  # Static counter for unique IDs
     _all_instances = []  # Static list to keep track of all instances
 
-    def __init__(self, name, color, list_of_player_indexes: list):
+    def __init__(self, name: str, color: Color, list_of_player_indexes: list):
 
         self._team_id = Team._id_counter
         Team._id_counter += 1
         Team._all_instances.append(self)
 
-        self._name = name
-        self._color = color  # TODO: use enum
-        self._roster = [Player.get_all_instances()[i] for i in list_of_player_indexes]
+        self._name: str = name
+        self._color: Color = color
+        self._roster: List[Player] = [Player.get_all_instances()[i] for i in list_of_player_indexes]
         self._default_starting_roster_ids = list_of_player_indexes
         self._is_left = False
         self._can_substitute = False
@@ -41,24 +42,49 @@ class Team:
 
     # Property for color
     @property
-    def color(self):
+    def color(self) -> Color:
         return self._color
 
     @color.setter
-    def color(self, value):
-        self._color = value  # Add Enum validation here when implemented
+    def color(self, new_color: Color):
+        if not isinstance(new_color, Color):
+            print(f"{new_color} is not a Color")
+            raise Exception()
+        self._color = new_color
 
     # Property for roster
     @property
     def roster(self):
         return self._roster
 
+    @property
+    def default_starting_roster_ids(self):
+        return self._default_starting_roster_ids
+
+    # Property for is_left
+    @property
+    def is_left(self):
+        return self._is_left
+
+    # Property for can_substitute
+    @property
+    def can_substitute(self):
+        return self._can_substitute
+
+    @property
+    def line_up(self):
+        return self._roster[:NUM_OF_PLAYERS_IN_LINE_UP]
+
+    @is_left.setter
+    def is_left(self, value: bool):
+        self._is_left = bool(value)
+
     def reset_roster(self):
         self._roster = [Player.get_all_instances()[i] for i in self._default_starting_roster_ids]
 
     def substitute(self, player1: Player, player2: Player):
         if not(player1 in self._roster and player2 in self._roster):
-            print(f"one of {player1.format_name()} and {player2.format_name()} doesn't play for this team")
+            print(f"one of {player1.format_name} and {player2.format_name} doesn't play for this team")
             raise
 
         first_index = self._roster.index(player1)
@@ -90,29 +116,6 @@ class Team:
     def update_default_roster_to_current(self):
         self._default_starting_roster_ids = [self._roster[i].get_id() for i in range(NUM_OF_PLAYERS_IN_TEAM)]
 
-    # Property for default_starting_roster_ids
-    @property
-    def default_starting_roster_ids(self):
-        return self._default_starting_roster_ids
-
-    # Property for is_left
-    @property
-    def is_left(self):
-        return self._is_left
-
-    @is_left.setter
-    def is_left(self, value):
-        self._is_left = bool(value)
-
-    # Property for can_substitute
-    @property
-    def can_substitute(self):
-        return self._can_substitute
-
-    @property
-    def line_up(self):
-        return self._roster[:NUM_OF_PLAYERS_IN_LINE_UP]
-
     def inhibit_substitution(self):
         self._can_substitute = False
 
@@ -120,45 +123,60 @@ class Team:
         self._can_substitute = True
 
     def format_team_name(self):
-        return self._color + self._name + COLOR_RESET
+        return paint(self._name, self.color)
 
     def display_roster(self):
-        print(self._color + self._name + COLOR_RESET)
+        print(self.format_team_name())
         for player in self._roster:
-            print(player.format_name())
+            print(player.format_name)
 
     def reset_all_positions(self):
         for i, player in enumerate(self._roster):
             if i < NUM_OF_PLAYERS_IN_LINE_UP:
-                player.position(i)
+                player.position = i
                 player.reset_position(self._is_left)
             else:
                 player.get_off_field()
 
     def add_set_to_players_count(self):
         for player in self.line_up:
-            player.increase_stat_by("sets_played", 1)
+            player.increment_stat_by("sets_played", 1)
 
     def get_positions(self):
         positions = []
         for player in self.line_up:
-            positions.append(tuple([player.row(), player.column()]))
-            if player.column() not in range(22):
-                raise ValueError(f"{player.format_name()} is in an invalid position. "
-                                 f"row: {player.row()}, col: {player.column()}")
+            positions.append(tuple([player.row, player.column]))
+            if player.column not in range(22):
+                raise ValueError(f"{player.format_name} is in an invalid position. "
+                                 f"row: {player.row}, col: {player.column}")
         return positions
+
+    def get_columns(self):
+        columns = []
+        for player in self.line_up:
+            columns.append(player.column)
+            if player.column not in range(22):
+                raise ValueError(f"{player.format_name} is in an invalid position. "
+                                 f"row: {player.row}, col: {player.column}")
+        return columns
 
     def advance_all(self):
         for player in self.line_up:
             player.advance(self._is_left)
 
     def trade_in_player(self, arriving_player: Player):
-        self._default_starting_roster_ids.append(arriving_player.get_id())
+        self._default_starting_roster_ids.append(arriving_player.get_id)
         self._roster.append(arriving_player)
 
     def trade_out_player(self, departing_player_id: int):
         self._default_starting_roster_ids.remove(departing_player_id)
         for player in self._roster:
-            if player.get_id() == departing_player_id:
+            if player.get_id == departing_player_id:
                 self._roster.remove(player)
                 break
+
+    def finish_match(self):
+        self._is_left = False
+        self._can_substitute = False
+        for player in self._roster:
+            player.get_off_field()
