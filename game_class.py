@@ -106,6 +106,10 @@ class Game:
         return self._left_team, self._right_team
 
     @property
+    def scores(self):
+        return self._left_score, self._right_score
+
+    @property
     def on_field_players(self):
         return self._left_team.line_up + self._right_team.line_up
 
@@ -137,7 +141,7 @@ class Game:
         self._set_counter = 0
         for team in self.teams:
             team.reset_all_positions()
-            team.allow_substitution()
+            team.inhibit_substitution()
         self._declare_teams()
 
     def _creating_competition(self):
@@ -206,6 +210,7 @@ class Game:
 
     def _turn(self) -> str:
         self._turn_counter = 0
+        sleep_timer = 0
 
         while True:
             # a loop that runs until a touchdown is scored, the carrier drops the disc or there were more than 10 turns
@@ -228,19 +233,19 @@ class Game:
             if there_was_a_drop:
                 self._declare_state()
                 print(f"{taker} has manage to take {self._carrier.format_name} down!")
-                sleep(1)
+                sleep(sleep_timer)
                 return "Drop"
 
             if self._check_touchdown():
                 self._declare_state()
                 print(f"{self._carrier.format_name} scored a touchdown!")
-                sleep(1)
+                sleep(sleep_timer)
                 return "Touchdown"
 
             if self._turn_counter > 9:
                 self._declare_state()
                 print(f"Time! the disc is now free!")
-                sleep(1)
+                sleep(sleep_timer)
                 return "Time"
 
     def _phase(self):
@@ -257,7 +262,12 @@ class Game:
 
     def set(self):
         self._set_counter += 1
-        for team in self.teams:
+        for team, score in zip(self.teams, self.scores):
+            if score in [0, 3, 6, 9]:
+                team.decide_substitution()
+            else:
+                team.allow_substitution()
+
             team.reset_all_positions()
             team.add_set_to_players_count()
 

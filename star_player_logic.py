@@ -32,32 +32,36 @@ class MainPlayerGame(Game):
             if team.team_id == chosen_team_id:
                 self.main_team = team
                 player_ids = [player.get_id for player in team.roster]
-                chosen_player_id = validate_answer(f"choose player. use id's from the following list: {player_ids}", player_ids)
+                chosen_player_id = validate_answer(f"choose player. "
+                                                   f"use id's from the following list: {player_ids}", player_ids)
                 for player in team.roster:
                     if player.get_id == chosen_player_id:
                         print(
                             f"you chose {player.format_name}. you will play for {self.main_team.format_team_name()}")
+                        player.is_star_player = True
                         return player
         raise Exception()
 
     def _turn(self) -> str:
         self._turn_counter = 0
+        sleep_timer = 3
+
+        self._declare_state()
 
         while True:
             # a loop that runs until a touchdown is scored, the carrier drops the disc or there were more than 10 turns
             self._turn_counter += 1
 
-            self._declare_state()
-
             for team in self.teams:
                 team.advance_all()
+
+            self._declare_state()
 
             taker = None
             there_was_a_drop = False
             for player in self._shooting_team.line_up:
                 if player is self.main_player:
-                    self._declare_state()
-                    target_num = validate_answer("choose which player to shoot", [i for i in range(5)])
+                    target_num = validate_answer("choose which player to shoot", [position for position in range(5)])
                     target_player = self._running_team.line_up[target_num]
                 else:
                     target_player = Game._choose_target(player, self._running_team.line_up)
@@ -66,22 +70,24 @@ class MainPlayerGame(Game):
                     there_was_a_drop = True
                     taker = player.format_name
 
+            sleep(sleep_timer)
+
             if there_was_a_drop:
                 self._declare_state()
                 print(f"{taker} has manage to take {self._carrier.format_name} down!")
-                sleep(1)
+                sleep(sleep_timer)
                 return "Drop"
 
             if self._check_touchdown():
                 self._declare_state()
                 print(f"{self._carrier.format_name} scored a touchdown!")
-                sleep(1)
+                sleep(sleep_timer)
                 return "Touchdown"
 
             if self._turn_counter > 9:
                 self._declare_state()
                 print(f"Time! the disc is now free!")
-                sleep(1)
+                sleep(sleep_timer)
                 return "Time"
 
     def _phase(self):
@@ -113,12 +119,12 @@ class MainPlayerGame(Game):
             return self.pass_try(self._running_team.line_up[target_num])
 
 
-# for i in range(NUM_OF_PLAYERS_IN_TEAM*2):
-#     Player()
-#
-#
-# team1 = Team("A", Color.RED, list(range(NUM_OF_PLAYERS_IN_TEAM)))
-# team2 = Team("B", Color.BLUE, list(range(NUM_OF_PLAYERS_IN_TEAM, NUM_OF_PLAYERS_IN_TEAM * 2)))
-# game1 = MainPlayerGame(team1, team2)
-# game2 = Game(team1, team2)
-# game2.simulate()
+for i in range(NUM_OF_PLAYERS_IN_TEAM*2):
+    Player()
+
+
+team1 = Team("A", Color.RED, list(range(NUM_OF_PLAYERS_IN_TEAM)))
+team2 = Team("B", Color.BLUE, list(range(NUM_OF_PLAYERS_IN_TEAM, NUM_OF_PLAYERS_IN_TEAM * 2)))
+game1 = MainPlayerGame(team1, team2)
+game2 = Game(team1, team2)
+game2.simulate()

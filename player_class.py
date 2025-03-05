@@ -14,29 +14,54 @@ class Player:
     def _create_player_df():
         stats_dict = {
             "sets_played": [0],
-            "distance_covered": [0],
+            # offensive
+            # points gain
+            "touchdowns": [0],
+            "assists": [0],
+
+            # advancements
             "distance_carried": [0],
             "distance_passed": [0],
-            "touchdowns": [0],
-            "turns_in_touchdown_strip": [0],
+            "advancement_by_catch": [0],
+
+            # creating
             "creations": [0],
             "end_zone_creation": [0],
-            "evasions": [0],
+
+            # holding
             "carrier_evasions": [0],
-            "successful_shots": [0],
-            "successful_takedowns": [0],
+            "drop_avoidance": [0],
+
+            # defensive
             "last_ditch_hits": [0],
             "last_ditch_takedowns": [0],
             "carrier_takedowns": [0],
             "carrier_hits": [0],
-            "hits_taken": [0],
-            "balance_losses": [0],
+
+            # formation
+            # positioning
+            "distance_covered": [0],
+            "turns_in_touchdown_strip": [0],
+            "evasions": [0],
+            "fall_avoidance": [0],
+
+            # pressure
+            "successful_shots": [0],
+            "successful_takedowns": [0],
+
+            # fails
+            # offensive fail
             "drops_made": [0],
-            "passes_made": [0],
-            "catches_made": [0],
-            "assists": [0],
             "failed_passes": [0],
             "failed_catches": [0],
+
+            # positioning fails
+            "hits_taken": [0],
+            "balance_losses": [0],
+
+            # pass numbers
+            "passes_made": [0],
+            "catches_made": [0],
             "dashes": [0]
         }
         return DataFrame(stats_dict)
@@ -80,6 +105,8 @@ class Player:
         self.season_table = Player._create_player_df()
         self.all_time_stats = Player._create_player_df()
 
+        self.is_star_player: bool = False
+
     # class methods
     @classmethod
     def get_all_instances(cls):
@@ -87,11 +114,21 @@ class Player:
         return cls._all_instances
 
     @classmethod
+    def delete_all_instances(cls):
+        """Class method to retrieve all instances."""
+        for item in cls._all_instances:
+            del item
+        cls._all_instances.clear()
+        cls._id_counter = 0
+
+    @classmethod
     def face_off(cls, shooting_player, target_player, target_is_left: bool):
         shot_quality = randint(1, shooting_player.shooting) // shooting_player.calculate_distance_to(target_player)
         evasion_attempt = randint(1, target_player.agility)
         if shot_quality <= evasion_attempt:
             target_player.evade()
+            if shooting_player.is_star_player:
+                print(f"{shooting_player.format_name} has missed!")
             return False
         else:
             target_is_carrier = target_player.has_disc
@@ -108,12 +145,13 @@ class Player:
         catch_attempt = randint(1, catcher.control)
         distance = passer.calculate_distance_to(catcher)
         threshold = randint(1, 20) * distance
+        blocks_difference = passer.compare_columns(catcher, is_left)
         if pass_attempt > 0.75 * threshold:
             catch_attempt *= 1.5
         if pass_attempt + catch_attempt >= threshold:
 
-            passer.pass_disc(catcher, is_left)
-            catcher.catch_disc()
+            passer.pass_disc(blocks_difference)
+            catcher.catch_disc(blocks_difference)
             return True
         else:
             passer.pass_fail()
@@ -238,6 +276,7 @@ class Player:
         self._column = None
         self._delay = False
         self._fatigue = 0  # TODO: think about the relevant logic
+        self.is_star_player = False  # TODO: think if that is good logic
 
     # row related methods
     def set_row(self, is_left: bool):
@@ -295,8 +334,8 @@ class Player:
                 blocks = distance
             self.increment_stat_by("distance_covered", blocks)
             self._column += blocks * direction
-            print(
-                f"{self.format_name} used to be at {original_column}, and advanced to {self.column}")  # TODO: remove later
+            if self.is_star_player:
+                print(f"{self.format_name} used to be at {original_column}, and advanced to {self.column}")
             if self.has_disc:
                 self.increment_stat_by("distance_carried", blocks)
 
@@ -321,7 +360,8 @@ class Player:
             self.fall_down(is_left)
         else:
             self.absorb(blocks, is_left)
-            print(f"{self.format_name} used to be at {original_column}, and retreated to {self.column}") # TODO: remove later
+            if self.is_star_player:
+                print(f"{self.format_name} used to be at {original_column}, and retreated to {self.column}")
         return there_is_a_takedown
 
     # face_off related methods
@@ -329,6 +369,8 @@ class Player:
         self.increment_stat_by("evasions", 1)
         if self.has_disc:
             self.increment_stat_by("carrier_evasions", 1)
+        if self.is_star_player:
+            print(f"{self.format_name} has managed to evade a shot!")
 
     def hit_target(self, target_has_disc: bool, target_column: int):
         self.increment_stat_by("successful_shots", 1)
@@ -336,6 +378,8 @@ class Player:
             self.increment_stat_by("carrier_hits", 1)
             if target_column in [10, 11]:
                 self.increment_stat_by("last_ditch_hits", 1)
+        if self.is_star_player:
+            print(f"{self.format_name} has made a successful shot!")
 
     def takedown(self, target_has_disc: bool, target_column: int):
         self.increment_stat_by("successful_takedowns", 1)
@@ -353,7 +397,7 @@ class Player:
         return False
 
     def fall_down(self, is_left: bool):
-        original_column = self.column  # TODO: remove later
+        original_column = self.column
         direction = 1 if is_left else -1
         self.increment_stat_by("hits_taken", 1)
         self.increment_stat_by("balance_losses", 1)
@@ -361,14 +405,16 @@ class Player:
             self.increment_stat_by("drops_made", 1)
         self._delay_switch_on()
         self.reset_position(is_left)
-        print(
-            f"{self.format_name} used to be at {original_column}, and fell to {self.column}")  # TODO: remove later
         self._column -= direction
-        print(
-            f"{self.format_name} is now in {self.column}")  # TODO: remove later
+        if self.is_star_player:
+            print(f"{self.format_name} used to be at {original_column}, and fell to {self.column}")
 
     def absorb(self, blocks: int, is_left: bool):
         self.increment_stat_by("hits_taken", 1)
+        fall_avoidance = 10 - self.distance_to_end_zone(is_left) - blocks
+        self.increment_stat_by("fall_avoidance", fall_avoidance)
+        if self.has_disc:
+            self.increment_stat_by("drop_avoidance", fall_avoidance)
         if self.has_disc and self.column in [10, 11]:
             self.increment_stat_by("last_ditch_hits", 1)
         if not is_left:
@@ -393,14 +439,14 @@ class Player:
     # TODO: transfer data from game table to other tables
 
     # passing related methods
-    def pass_disc(self, catcher, is_left: bool):
-        blocks = self.compare_columns(catcher, is_left)
+    def pass_disc(self, blocks_difference: int):
         self.increment_stat_by("passes_made", 1)
-        self.increment_stat_by("distance_passed", blocks)
+        self.increment_stat_by("distance_passed", blocks_difference)
         self.give_disc_away()
 
-    def catch_disc(self):
+    def catch_disc(self, blocks_difference: int):
         self.increment_stat_by("catches_made", 1)
+        self.increment_stat_by("advancement_by_catch", blocks_difference)
         self.gain_disc()
 
     def pass_fail(self):
@@ -454,50 +500,69 @@ class Player:
                 print(COLOR_DICT["purple"], end="")
             print(self.current_match_stat(player_stat))
             print(COLOR_RESET, end="")
+        self.assess_performance()
 
-    def assess_performance(self, stats_table: DataFrame):
-        # TODO: reformat
-        player_stats = stats_table.loc[self._id]
+    def get_score_from_categories(self, categories, weights):
+        return sum([self.current_match_stat(categories[i]) * weights[i] for i in range(len(categories))])
 
-        if player_stats["sets_played"]:
-            # offence score
-            offence_score = 0.0
-            offence_score += 10 * player_stats["touchdowns"]
-            offence_score += player_stats["creations"] - player_stats["touchdowns"] - player_stats["drops_made"]
-            offence_score += player_stats["distance_carried"] / 4
-            offence_score += player_stats["carrier_evasions"] / 2
-            offence_score -= player_stats["drops_made"] / 2
-            if offence_score < 0:  # has printing if someone wants to know
-                #  print("under 0", offence_score)
-                offence_score = 0.0
-            offence_score /= player_stats["sets_played"]
+    def get_offence_score(self):
+        points_categories = ["touchdowns", "assists"]
+        touchdowns_score = self.get_score_from_categories(points_categories, [1, 0.8])
+        advancement_stats = ["distance_carried", "distance_passed", "advancement_by_catch"]
+        advancement_score = self.get_score_from_categories(advancement_stats, [1, 1, 1])
+        creation_stats = ["creations", "end_zone_creation"]
+        creation_score = self.get_score_from_categories(creation_stats, [1, 2])
+        holding_stats = ["carrier_evasions", "drop_avoidance"]
+        holding_score = self.get_score_from_categories(holding_stats, [10, 1])
+        offence_scores_list = [touchdowns_score, advancement_score, creation_score, holding_score]
 
-            # defence score
-            defence_score = 0.0
-            defence_score += 10 * player_stats["last_ditch_takedowns"]
-            defence_score += 7 * (player_stats["carrier_takedowns"] - player_stats["last_ditch_takedowns"])
-            defence_score += 3 * (player_stats["successful_takedowns"] - player_stats["carrier_takedowns"])
-            defence_score += player_stats["last_ditch_hits"] - player_stats["last_ditch_takedowns"]
-            defence_score += (player_stats["successful_shots"]
-                              - player_stats["successful_takedowns"]
-                              - player_stats["last_ditch_hits"]) / 2
-            defence_score /= player_stats["sets_played"]
-            defence_score *= 1.5
+        offence_weights = [1, 0.05, 0.2, 0.005]
+        return round(sum([offence_scores_list[i] * offence_weights[i] for i in range(len(offence_scores_list))]), 2)
 
-            # total score
-            total_score = (offence_score + defence_score + max(offence_score, defence_score))
-            if total_score < 5:
-                total_score = float(int(total_score))
-            elif total_score <= 7.5:
-                total_score = int(total_score * 2) / 2
-            elif total_score <= 12:
-                temp = int((total_score % 7.5) + 1) / 5
-                total_score = 7.5 + temp
-            else:
-                temp = int((total_score % 12) + 1) / 10
-                total_score = 8.5 + temp
-                if total_score >= 10:
-                    total_score = 10.0
-            # print(offence_score, defence_score, total_score)
+    def get_defence_score(self):
+        defence_categories = ["last_ditch_hits", "last_ditch_takedowns", "carrier_takedowns", "carrier_hits"]
+        defence_weights = [0.5, 1, 0.5, 0.2]
+        return round(self.get_score_from_categories(defence_categories, defence_weights), 2)
 
-            return offence_score, defence_score, total_score
+    def get_fail_score(self):
+        off_fail_categories = ["drops_made", "failed_passes", "failed_catches"]
+        off_fail_weights = [1, 0.4, 0.2]
+        off_fail_score = self.get_score_from_categories(off_fail_categories, off_fail_weights)
+
+        pos_fail_categories = ["hits_taken", "balance_losses"]
+        pos_fail_weights = [0.2, 1]
+        pos_fail_score = self.get_score_from_categories(pos_fail_categories, pos_fail_weights)
+
+        fail_scores_list = [off_fail_score, pos_fail_score]
+        fail_weights = [1, 0.2]
+        return round(sum([fail_scores_list[i] * fail_weights[i] for i in range(len(fail_scores_list))]), 2)
+
+    def get_formation_score(self):
+        positioning_categories = ["distance_covered", "turns_in_touchdown_strip", "evasions", "fall_avoidance"]
+        positioning_weights = [0.25, 1, 0.25, 0.05]
+        positioning_score = self.get_score_from_categories(positioning_categories, positioning_weights)
+
+        pressure_categories = ["successful_shots", "successful_takedowns"]
+        pressure_weights = [0.2, 1]
+        pressure_score = self.get_score_from_categories(pressure_categories, pressure_weights)
+
+        formation_scores_list = [positioning_score, pressure_score]
+        formation_weights = [0.1, 0.2]
+        return round(sum([formation_scores_list[i] * formation_weights[i] for i in range(len(formation_scores_list))]), 2)
+
+    def assess_performance(self):
+        def standardize_score(raw: float, mean: float, std: float):
+            z_score = (raw - mean) / std
+            standardized = round(5.5 + z_score * 1.5, 1)
+            if standardized > 10:
+                standardized = 10.0
+            elif standardized < 1:
+                standardized = 1.0
+            return standardized
+
+        if self.current_match_stat("sets_played"):
+            offence_score = standardize_score(self.get_offence_score(), 4.88, 3.46)
+            defence_score = standardize_score(self.get_defence_score(), 2.59, 2.38)
+            formation_score = standardize_score(self.get_formation_score(), 8, 1.896)
+            fail_score = standardize_score(self.get_fail_score(), 2.2, 1.53)
+            print("off", offence_score, "def", defence_score, "form", formation_score, "fail", fail_score)

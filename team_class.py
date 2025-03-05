@@ -1,7 +1,10 @@
-from constants import Color, COLOR_RESET, NUM_OF_PLAYERS_IN_LINE_UP, NUM_OF_PLAYERS_IN_TEAM, paint
+import random
+
+from constants import Color, NUM_OF_PLAYERS_IN_LINE_UP, NUM_OF_PLAYERS_IN_TEAM, paint
 from player_class import Player
-from pandas import DataFrame
 from typing import List
+
+# TODO: shooting order
 
 
 class Team:
@@ -81,6 +84,16 @@ class Team:
 
     def reset_roster(self):
         self._roster = [Player.get_all_instances()[i] for i in self._default_starting_roster_ids]
+
+    def decide_substitution(self):
+        if not self.can_substitute:
+            return
+        exiting_player = self.line_up[random.randint(0, NUM_OF_PLAYERS_IN_LINE_UP)]
+        entering_player = self._roster[random.randint(NUM_OF_PLAYERS_IN_LINE_UP, NUM_OF_PLAYERS_IN_TEAM)]
+        self.substitute(exiting_player, entering_player)
+        print(f"{entering_player.format_name} came on for {exiting_player.format_name} at position "
+              f"{exiting_player.position}")
+        self.inhibit_substitution()
 
     def substitute(self, player1: Player, player2: Player):
         if not(player1 in self._roster and player2 in self._roster):
