@@ -86,10 +86,8 @@ class Team:
         self._roster = [Player.get_all_instances()[i] for i in self._default_starting_roster_ids]
 
     def decide_substitution(self):
-        if not self.can_substitute:
-            return
-        exiting_player = self.line_up[random.randint(0, NUM_OF_PLAYERS_IN_LINE_UP)]
-        entering_player = self._roster[random.randint(NUM_OF_PLAYERS_IN_LINE_UP, NUM_OF_PLAYERS_IN_TEAM)]
+        exiting_player = self.line_up[random.randint(0, NUM_OF_PLAYERS_IN_LINE_UP - 1)]
+        entering_player = self._roster[random.randint(NUM_OF_PLAYERS_IN_LINE_UP, NUM_OF_PLAYERS_IN_TEAM - 1)]
         self.substitute(exiting_player, entering_player)
         print(f"{entering_player.format_name} came on for {exiting_player.format_name} at position "
               f"{exiting_player.position}")
@@ -128,6 +126,12 @@ class Team:
 
     def update_default_roster_to_current(self):
         self._default_starting_roster_ids = [self._roster[i].get_id() for i in range(NUM_OF_PLAYERS_IN_TEAM)]
+
+    def update_default_roster_to_given_id_list(self, id_list: List[int]):
+        for player_id in id_list:
+            if player_id not in self.default_starting_roster_ids:
+                raise Exception()
+        self._default_starting_roster_ids = id_list
 
     def inhibit_substitution(self):
         self._can_substitute = False

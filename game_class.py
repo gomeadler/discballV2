@@ -39,6 +39,11 @@ class Game:
             raise IndexError
         return result
 
+    @staticmethod
+    def _substitution_control(score: int, team: Team):
+        if score in [3, 6, 9]:
+            team.allow_substitution()
+
     def __init__(self, left_team: Team, right_team: Team):
         Game._id_counter += 1
         Game._all_instances.append(self)
@@ -193,15 +198,18 @@ class Game:
             team.finish_match()
             for player in team.roster:
                 if player.game_table["sets_played"][0] > 0:
-                    player.present_player(self.get_player_in_top_summary(player))
+                    player.present_player_game_stats(self.get_player_in_top_summary(player))
+                    player.is_star_player = False
 
     def _check_touchdown(self) -> bool:
         if self._carrier.column in [10, 11]:
             self._carrier.touchdown()
             if self._running_team is self._left_team:
                 self._left_score += 1
+                self._substitution_control(self._left_score, self._left_team)
             elif self._running_team is self._right_team:
                 self._right_score += 1
+                self._substitution_control(self._right_score, self._right_team)
             else:
                 print(f"either team isn't the running team!")
                 raise Exception()
@@ -262,11 +270,9 @@ class Game:
 
     def set(self):
         self._set_counter += 1
-        for team, score in zip(self.teams, self.scores):
-            if score in [0, 3, 6, 9]:
+        for team in self.teams:
+            if team.can_substitute:
                 team.decide_substitution()
-            else:
-                team.allow_substitution()
 
             team.reset_all_positions()
             team.add_set_to_players_count()
@@ -343,5 +349,3 @@ class Game:
             if player in self.top_players(stat):
                 player_top_list.append(stat)
         return player_top_list
-
-

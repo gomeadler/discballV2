@@ -1,7 +1,7 @@
 from player_class import Player
 from team_class import Team
 from game_class import Game
-from constants import Color, NUM_OF_PLAYERS_IN_TEAM
+from constants import Color, NUM_OF_PLAYERS_IN_TEAM, POINTS_FOR_WIN
 from time import sleep
 
 
@@ -38,9 +38,18 @@ class MainPlayerGame(Game):
                     if player.get_id == chosen_player_id:
                         print(
                             f"you chose {player.format_name}. you will play for {self.main_team.format_team_name()}")
-                        player.is_star_player = True
                         return player
         raise Exception()
+
+    def _prepare_match(self):
+        self._left_team.is_left = True
+        self._right_team.is_left = False
+        self._set_counter = 0
+        for team in self.teams:
+            team.reset_all_positions()
+            team.inhibit_substitution()
+        self._declare_teams()
+        self.main_player.is_star_player = True
 
     def _turn(self) -> str:
         self._turn_counter = 0
@@ -117,14 +126,3 @@ class MainPlayerGame(Game):
             options = [player.position for player in self._running_team.line_up if player is not self.main_player]
             target_num = validate_answer("choose a player to pass to", options)
             return self.pass_try(self._running_team.line_up[target_num])
-
-
-for i in range(NUM_OF_PLAYERS_IN_TEAM*2):
-    Player()
-
-
-team1 = Team("A", Color.RED, list(range(NUM_OF_PLAYERS_IN_TEAM)))
-team2 = Team("B", Color.BLUE, list(range(NUM_OF_PLAYERS_IN_TEAM, NUM_OF_PLAYERS_IN_TEAM * 2)))
-game1 = MainPlayerGame(team1, team2)
-game2 = Game(team1, team2)
-game2.simulate()

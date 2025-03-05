@@ -213,6 +213,10 @@ class Player:
         return self._speed, self._agility, self._creating, self._shooting, self._stability, self._distribution, \
             self._control
 
+    @property
+    def attribute_names(self):
+        return "speed, agility, creating, shooting, stability, distribution, control".split(", ")
+
     # Property for has_disc
     @property
     def has_disc(self):
@@ -276,7 +280,6 @@ class Player:
         self._column = None
         self._delay = False
         self._fatigue = 0  # TODO: think about the relevant logic
-        self.is_star_player = False  # TODO: think if that is good logic
 
     # row related methods
     def set_row(self, is_left: bool):
@@ -491,7 +494,7 @@ class Player:
     def current_match_stat(self, stat: str):
         return self.game_table[stat][0]
 
-    def present_player(self, top_stat_list: list):
+    def present_player_game_stats(self, top_stat_list: list):
         keys_list = list(self.game_table.keys())
         print(self.format_name)
         for player_stat in keys_list:
@@ -501,6 +504,11 @@ class Player:
             print(self.current_match_stat(player_stat))
             print(COLOR_RESET, end="")
         self.assess_performance()
+
+    def present_player_attributes(self):
+        print(self.format_name, self.get_id)
+        for name, value in zip(self.attribute_names, self.attributes):
+            print(f"{name}: {value}")
 
     def get_score_from_categories(self, categories, weights):
         return sum([self.current_match_stat(categories[i]) * weights[i] for i in range(len(categories))])
